@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "pylpc"
+version = "0.1.0"
+description = "A Lexer and Parser Combinator in Python"
+authors = ["Rayshard Thompson <rayshard.t123@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+mypy = "^0.930"
+
+[tool.poetry.dev-dependencies]
+pytest = ">=5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
