@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Callable, Dict, Generic, List, Optional, Set, TypeAlias, TypeVar, Union
 import re
 
-char : TypeAlias = str
+char = str
 EOF : char = ''
 
 @dataclass
@@ -49,7 +49,7 @@ class StringStream:
         self.__offset = init_offset
         return peeked
 
-    def ignore_chars(self, amt: int) -> None:
+    def ignore(self, amt: int) -> None:
         assert amt >= 0
         self.__offset = min(len(self.__data), self.__offset + amt)
 
@@ -134,7 +134,7 @@ class ParseError(Exception):
         trace_message : str = ""
 
         for e in self.__trace:
-            trace_message += "\n" + e.get_message_with_trace().replace("\n", "\n\t")
+            trace_message += "\n\t" + e.get_message_with_trace().replace("\n", "\n\t")
 
         return str(self) + trace_message
 
@@ -153,13 +153,11 @@ class ParseResult(Generic[T]):
     position : Position
     value : T
 
-ParseFunction : TypeAlias = Callable[[Position, StringStream], ParseResult[T]]
-
 class Parser(Generic[T]):
-    def __init__(self, func: ParseFunction[T]) -> None:
+    def __init__(self, parsable: Callable[[Position, StringStream], ParseResult[T]]) -> None:
         super().__init__()
 
-        self.__function : ParseFunction[T] = func
+        self.__function : Callable[[Position, StringStream], ParseResult[T]] = lambda position, stream: parsable(position, stream)
 
     def parse(self, input: Union[StringStream, str]) -> ParseResult[T]:
         stream = input if isinstance(input, StringStream) else StringStream(input)
@@ -171,68 +169,61 @@ class Parser(Generic[T]):
             stream.set_offset(stream_start)
             raise e
 
-class IParser(ABC, Parser[T]):
-    def __init__(self) -> None:
-        super().__init__(self._on_parse)
+# class Lexer:
+#     PatternID : TypeAlias = str
 
-    def _on_parse(self, pos: Position, stream: StringStream) -> ParseResult[T]:
-        pass
+#     @dataclass
+#     class Token:
+#         patternID: 'Lexer.PatternID'
+#         position: Position
+#         value: str
 
-class Lexer:
-    PatternID : TypeAlias = str
+#         def is_eos(self) -> bool:
+#             return self.patternID == Lexer.EOS_PATTERN_ID()
 
-    @dataclass
-    class Token:
-        patternID: 'Lexer.PatternID'
-        position: Position
-        value: str
+#         def is_unknown(self) -> bool:
+#             return self.patternID == Lexer.UNKNOWN_PATTERN_ID()
 
-        def is_eos(self) -> bool:
-            return self.patternID == Lexer.EOS_PATTERN_ID()
+#     NoAction : TypeAlias = None
+#     Procedure : TypeAlias = Callable[[StringStream, Token], None]
+#     Function : TypeAlias = Callable[[StringStream, Token], str]
+#     Action : TypeAlias = Union[NoAction, Procedure, Function]
 
-        def is_unknown(self) -> bool:
-            return self.patternID == Lexer.UNKNOWN_PATTERN_ID()
+#     @dataclass
+#     class Pattern:
+#         id: 'Lexer.PatternID'
+#         regex: Regex
+#         action: 'Lexer.Action'
 
-    NoAction : TypeAlias = None
-    Procedure : TypeAlias = Callable[[StringStream, Token], None]
-    Function : TypeAlias = Callable[[StringStream, Token], str]
-    Action : TypeAlias = Union[NoAction, Procedure, Function]
+#     @staticmethod
+#     def OnLexUnknown(stream: StringStream, token: Token) -> None:
+#         raise Exception(f"Unrecognized token: '{token.value}' at {str(stream.get_position())}")
 
-    @dataclass
-    class Pattern:
-        id: 'Lexer.PatternID'
-        regex: Regex
-        action: 'Lexer.Action'
+#     def __init__(self, on_eos: Action = None, on_unknown: Action = OnLexUnknown) -> None:
+#         self.__patterns : List[Lexer.Pattern] = []
+#         self.__patternMap: Dict[Lexer.PatternID, int] = {}
+#         self.__patternEOS : Lexer.Pattern = Lexer.Pattern(Lexer.EOS_PATTERN_ID(), Regex(), on_eos)
+#         self.__patternUnknown : Lexer.Pattern = Lexer.Pattern(Lexer.UNKNOWN_PATTERN_ID(), Regex(), on_unknown)
 
-    @staticmethod
-    def OnLexUnknown(stream: StringStream, token: Token) -> None:
-        raise Exception(f"Unrecognized token: '{token.value}' at {str(stream.get_position())}")
+#     def add_pattern(self, regex: Regex, id: Optional[PatternID] = None, action: Optional[Action] = None) -> Pattern:
+#         raise NotImplementedError()
 
-    def __init__(self, on_eos: Action = None, on_unknown: Action = OnLexUnknown) -> None:
-        self.__patterns : List[Lexer.Pattern] = []
-        self.__patternMap: Dict[Lexer.PatternID, int] = {}
-        self.__patternEOS : Lexer.Pattern = Lexer.Pattern(Lexer.EOS_PATTERN_ID(), Regex(), on_eos)
-        self.__patternUnknown : Lexer.Pattern = Lexer.Pattern(Lexer.UNKNOWN_PATTERN_ID(), Regex(), on_unknown)
+#     def lex(self, stream: StringStream) -> Token:
+#         raise NotImplementedError()
 
-    def add_pattern(self, regex: Regex, id: Optional[PatternID] = None, action: Optional[Action] = None) -> Pattern:
-        raise NotImplementedError()
+#     def has_pattern(self, id: PatternID) -> bool:
+#         raise NotImplementedError()
 
-    def lex(self, stream: StringStream) -> Token:
-        raise NotImplementedError()
+#     def get_pattern(self, id: PatternID) -> Pattern:
+#         raise NotImplementedError()
 
-    def has_pattern(self, id: PatternID) -> bool:
-        raise NotImplementedError()
+#     def create_lexeme(self, ignores: Optional[Set[PatternID]] = None, value: Optional[str] = None) -> Parser[str]:
+#         raise NotImplementedError()
 
-    def get_pattern(self, id: PatternID) -> Pattern:
-        raise NotImplementedError()
+#     @staticmethod
+#     def EOS_PATTERN_ID() -> PatternID:
+#         return "<EOS>"
 
-    def create_lexeme(self, ignores: Optional[Set[PatternID]] = None, value: Optional[str] = None) -> Parser[str]:
-        raise NotImplementedError()
-
-    @staticmethod
-    def EOS_PATTERN_ID() -> PatternID:
-        return "<EOS>"
-
-    @staticmethod
-    def UNKNOWN_PATTERN_ID() -> PatternID:
-        return "<UNKNOWN>"
+#     @staticmethod
+#     def UNKNOWN_PATTERN_ID() -> PatternID:
+#         return "<UNKNOWN>"

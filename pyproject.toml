@@ -3,6 +3,7 @@ name = "pylpc"
 version = "0.1.0"
 description = "A Lexer and Parser Combinator in Python"
 authors = ["Rayshard Thompson <rayshard.t123@gmail.com>"]
+exclude = ["main.py"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
