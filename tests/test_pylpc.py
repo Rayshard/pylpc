@@ -1,6 +1,7 @@
 from pylpc import __version__
 from pylpc.parsers import *
 from pylpc.pylpc import *
+from pylpc.lexer import *
 
 def test_version():
     assert __version__ == '0.1.0'
@@ -55,6 +56,14 @@ def test_StringStream():
     ss.ignore(100)
     assert ss.get_offset() == len(ss.get_data(0, None))
     assert ss.is_eos()
+
+    assert False # get_token
+    assert False # peek_token
+    assert False # set_token
+    assert False # clear_tokens
+
+def test_Lexer():
+    assert False
 
 def test_Map():
     parser = Parser(lambda pos, stream: ParseResult(pos, 5))
@@ -157,6 +166,9 @@ def test_Seq():
 def test_Maybe():
     assert False
 
+def test_Variant():
+    assert False
+
 def test_Longest():
     assert False
 
@@ -200,6 +212,9 @@ def test_Success():
     assert False
 
 def test_Failure():
+    assert False
+
+def test_Callback():
     assert False
 
 def test_Terminal():

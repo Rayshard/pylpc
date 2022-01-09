@@ -1,5 +1,5 @@
-from typing import Any, Tuple, Type, cast, overload
-import typing
+from types import ClassMethodDescriptorType
+from typing import Any, Tuple, cast, overload
 from .pylpc import *
 
 T1 = TypeVar("T1")
@@ -31,7 +31,7 @@ class Reference(Generic[T]):
         return self.__reference[0][0].parse(stream)
 
 class TryValue(Generic[T]):
-    def __init__(self, variant: Union[T, ParseError], is_success: bool) -> None:
+    def __init__(self, variant: T | ParseError, is_success: bool) -> None:
         super().__init__()
 
         self.__variant = variant
@@ -140,7 +140,7 @@ def Seq5(p1: Parser[T1], p2: Parser[T2], p3: Parser[T3], p4: Parser[T4], p5: Par
     return cast(Seq5Parser, Seq(p1, p2, p3, p4, p5))
 
 class MaybeValue(Generic[T]):
-    def __init__(self, variant: Union[T, None], is_success: bool) -> None:
+    def __init__(self, variant: Optional[T], is_success: bool) -> None:
         super().__init__()
 
         self.__variant = variant
@@ -175,7 +175,53 @@ def Maybe(parser: Parser[T]) -> MaybeParser[T]:
 
 def Longest(parsers: List[Parser[T]]) -> Parser[T]:
     def function(pos: Position, stream: StringStream) -> ParseResult[T]:
+        stream_start, greatest_length = stream.get_offset(), 0
+        result : Optional[ParseResult[T]] = None
+        errors : List[ParseError] = []
+
+        for parser in parsers:
+            try:
+                parse_result = parser.parse(stream)
+                length = stream.get_offset() - stream_start
+
+                if result is None or length > greatest_length:
+                    result = parse_result
+                    greatest_length = length
+                    errors.clear() # We put this here to save memory
+            except ParseError as e:
+                if result is None:
+                    e_length = stream.get_offset_from_pos(e.get_position())
+                    errors_length = 0 if len(errors) == 0 else stream.get_offset_from_pos(errors[0].get_position())
+
+                    if e_length == errors_length:
+                        errors.append(e)
+                    elif e_length > errors_length:
+                        errors = [e]
+
+            stream.set_offset(stream_start)
+
+        if result is None:
+            raise errors.pop() if len(errors) == 1 else ParseError(pos, "No option parsed!", errors)
+
+        stream.set_offset(stream_start + greatest_length)
+        return result
+
+    return Parser(function)
+
+def FirstSuccess(parsers: List[Parser[T]]) -> Parser[T]:
+    def function(pos: Position, stream: StringStream) -> ParseResult[T]:
         raise NotImplementedError()
+
+    return Parser(function)
+
+def Satisfy(parser: Parser[T], predicate: Optional[Callable[[ParseResult[T]], bool]] = None, on_fail: Optional[Callable[[ParseResult[T]], ParseError]] = None) -> Parser[T]:
+    def function(pos: Position, stream: StringStream) -> ParseResult[T]:
+        result = parser.parse(stream)
+
+        if predicate is not None:
+            return result
+        else:
+            raise on_fail(result) if on_fail is not None else ParseError(result.position, "Predicate not satisfied!")
 
     return Parser(function)
 

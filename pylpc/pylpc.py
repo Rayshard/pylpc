@@ -1,6 +1,6 @@
 from abc import ABC
 from dataclasses import dataclass
-from typing import Callable, Dict, Generic, List, Optional, Set, TypeAlias, TypeVar, Union
+from typing import Any, Callable, Dict, Generic, List, Optional, Set, Tuple, TypeAlias, TypeVar
 import re
 
 char = str
@@ -26,9 +26,18 @@ class Regex:
         return self.__pattern
 
 class StringStream:
+    TokenID : TypeAlias = int
+
+    @dataclass(frozen=True)
+    class Token:
+        id : 'StringStream.TokenID'
+        position : Position  
+        value : str
+
     def __init__(self, data: str) -> None:
         self.__data : str = data
         self.__offset : int = 0
+        self.__tokens : Dict[int, StringStream.Token] = {}
         self.__line_starts : List[int] = [0]
 
         for i, c in enumerate(data):
@@ -52,6 +61,27 @@ class StringStream:
     def ignore(self, amt: int) -> None:
         assert amt >= 0
         self.__offset = min(len(self.__data), self.__offset + amt)
+
+    def get_token(self) -> Optional[Token]:
+        token = self.__tokens.get(self.__offset)
+        
+        if token is not None:
+            self.ignore(len(token.value))
+
+        return token
+
+    def peek_token(self) -> Optional[Token]:
+        return self.__tokens.get(self.__offset)
+
+    def set_token(self, position: Position, length: int, id: TokenID) -> Token:
+        offset = self.get_offset_from_pos(position)
+        token = StringStream.Token(id, position, self.get_data(offset, length))
+
+        self.__tokens[offset] = token
+        return token
+
+    def clear_tokens(self) -> None:
+        self.__tokens.clear()
 
     def get_offset(self) -> int:
         return self.__offset
@@ -159,7 +189,7 @@ class Parser(Generic[T]):
 
         self.__function : Callable[[Position, StringStream], ParseResult[T]] = lambda position, stream: parsable(position, stream)
 
-    def parse(self, input: Union[StringStream, str]) -> ParseResult[T]:
+    def parse(self, input: StringStream | str) -> ParseResult[T]:
         stream = input if isinstance(input, StringStream) else StringStream(input)
         stream_start : int = stream.get_offset()
 
@@ -187,7 +217,7 @@ class Parser(Generic[T]):
 #     NoAction : TypeAlias = None
 #     Procedure : TypeAlias = Callable[[StringStream, Token], None]
 #     Function : TypeAlias = Callable[[StringStream, Token], str]
-#     Action : TypeAlias = Union[NoAction, Procedure, Function]
+#     Action : TypeAlias = NoAction | Procedure | Function
 
 #     @dataclass
 #     class Pattern:
