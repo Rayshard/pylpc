@@ -1,7 +1,6 @@
 from pylpc import __version__
-from pylpc.parsers import *
-from pylpc.pylpc import *
-from pylpc.lexer import *
+from pylpc.parsers import Char, Chars, Count, Letter, Letters, Map, Reference, Seq, Try, Value
+from pylpc.pylpc import ParseError, ParseResult, Parser, char, Position, StringStream
 
 def test_version():
     assert __version__ == '0.1.0'
@@ -66,14 +65,13 @@ def test_Lexer():
     assert False
 
 def test_Map():
-    parser = Parser(lambda pos, stream: ParseResult(pos, 5))
-    assert Map(parser, lambda input: 6).parse("").value == 6
+    assert Map(Value(5), lambda input: 6).parse("").value == 6
 
 def test_Reference():
     reference = Reference[char]()
     function = Parser(lambda pos, stream: Parser(reference).parse(stream))
 
-    reference.set(Parser(lambda pos, stream: ParseResult(pos, 'b')))
+    reference.set(Value('b'))
     assert function.parse("a").value == 'b'
 
     other = reference
