@@ -254,11 +254,11 @@ def LookAhead() -> Parser[T]:
 def Chain() -> Parser[T]:
     raise NotImplementedError()
 
-def Satisfy(parser: Parser[T], predicate: Optional[Callable[[ParseResult[T]], bool]] = None, on_fail: Optional[Callable[[ParseResult[T]], ParseError]] = None) -> Parser[T]:
+def Satisfy(parser: Parser[T], predicate: Callable[[ParseResult[T]], bool], on_fail: Optional[Callable[[ParseResult[T]], ParseError]] = None) -> Parser[T]:
     def function(loc: Location, stream: StringStream) -> ParseResult[T]:
         result = parser.parse(stream)
 
-        if predicate is not None:
+        if predicate(result):
             return result
         else:
             raise on_fail(result) if on_fail is not None else ParseError(result.location, "Predicate not satisfied!")
