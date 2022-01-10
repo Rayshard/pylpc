@@ -156,7 +156,7 @@ class StringStream:
 
 class ParseError(Exception):
     def __init__(self, loc: Location, msg: str = "", trace: Optional[List['ParseError']] = None) -> None:
-        super().__init__(f"({loc}) Error: {msg}")
+        super().__init__(f"{loc} [Error] {msg}")
         
         self.__location : Location = loc
         self.__message : str = msg
