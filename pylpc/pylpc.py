@@ -33,7 +33,8 @@ class StringStream:
         position : Position  
         value : str
 
-    def __init__(self, data: str) -> None:
+    def __init__(self, data: str, name: Optional[str] = None) -> None:
+        self.__name : str = "" if name is None else name
         self.__data : str = data
         self.__offset : int = 0
         self.__tokens : Dict[int, StringStream.Token] = {}
@@ -81,6 +82,9 @@ class StringStream:
 
     def clear_tokens(self) -> None:
         self.__tokens.clear()
+
+    def get_name(self) -> str:
+        return self.__name
 
     def get_offset(self) -> int:
         return self.__offset
@@ -197,4 +201,3 @@ class Parser(Generic[T]):
         except ParseError as e:
             stream.set_offset(stream_start)
             raise e
-            

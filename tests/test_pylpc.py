@@ -56,6 +56,7 @@ def test_StringStream():
     assert ss.get_offset() == len(ss.get_data(0, None))
     assert ss.is_eos()
 
+    assert False # get_name
     assert False # get_token
     assert False # peek_token
     assert False # set_token
