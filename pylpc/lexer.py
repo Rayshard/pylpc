@@ -64,8 +64,8 @@ def Lexeme(lexer: Parser[Token], id: str) -> Parser[str]:
 
     return Map(Satisfy(lexer, predicate, on_fail), lambda result: result.value.text)
 
-def EOS(lexer) -> Parser[str]:
+def EOSLexeme(lexer) -> Parser[str]:
     return Lexeme(lexer, EOS_PATTERN_ID())
 
-def Unknown(lexer) -> Parser[str]:
+def UnknownLexeme(lexer) -> Parser[str]:
     return Lexeme(lexer, UNKNOWN_PATTERN_ID())

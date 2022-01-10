@@ -1,5 +1,4 @@
-from types import ClassMethodDescriptorType
-from typing import Any, Tuple, cast, overload
+from typing import Any, Tuple, cast
 from .pylpc import *
 
 T1 = TypeVar("T1")
@@ -8,17 +7,14 @@ T3 = TypeVar("T3")
 T4 = TypeVar("T4")
 T5 = TypeVar("T5")
 
-MapInT = TypeVar('MapInT')
-MapOutT = TypeVar('MapOutT')
-
-def Map(parser: Parser[MapInT], func: Callable[[ParseResult[MapInT]], MapOutT]) -> Parser[MapOutT]:
-    def function(pos: Position, stream: StringStream) -> ParseResult[MapOutT]:
+def Map(parser: Parser[T], func: Callable[[ParseResult[T]], T1]) -> Parser[T1]:
+    def function(pos: Position, stream: StringStream) -> ParseResult[T1]:
         result = parser.parse(stream)
         position = result.position
 
-        return ParseResult[MapOutT](position, func(result))
+        return ParseResult[T1](position, func(result))
 
-    return Parser[MapOutT](function)
+    return Parser[T1](function)
 
 class Reference(Generic[T]):
     def __init__(self) -> None:
@@ -209,10 +205,52 @@ def Longest(parsers: List[Parser[T]]) -> Parser[T]:
     return Parser(function)
 
 def FirstSuccess(parsers: List[Parser[T]]) -> Parser[T]:
+    raise NotImplementedError()
+
+def Named(name: str, parser: Parser[T]) -> Parser[T]:
     def function(pos: Position, stream: StringStream) -> ParseResult[T]:
-        raise NotImplementedError()
+        try:
+            return parser.parse(stream)
+        except ParseError as e:
+            raise ParseError.create(ParseError(e.get_position(), f"Unable to parse {name}"), e)
 
     return Parser(function)
+
+def Prefixed(prefix: Parser[T1], parser: Parser[T2]) -> Parser[T2]:
+    def function(pos: Position, stream: StringStream) -> ParseResult[T2]:
+        prefix.parse(stream)
+        return parser.parse(stream)
+
+    return Parser(function)
+
+def Suffixed(parser: Parser[T1], suffix: Parser[T2]) -> Parser[T1]:
+    def function(pos: Position, stream: StringStream) -> ParseResult[T1]:
+        result = parser.parse(stream)
+        suffix.parse(stream)
+        return result
+
+    return Parser(function)
+
+def Between(prefix: Parser[T1], parser: Parser[T], suffix: Parser[T2]) -> Parser[T]:
+    return Suffixed(Prefixed(prefix, parser), suffix)
+
+def Value(value: T) -> Parser[T]:
+    def function(pos: Position, stream: StringStream) -> ParseResult[T]:
+        return ParseResult(pos, value)
+
+    return Parser(function)
+
+def Separate() -> Parser[T]:
+    raise NotImplementedError()
+
+def Fold() -> Parser[T]:
+    raise NotImplementedError()
+
+def LookAhead() -> Parser[T]:
+    raise NotImplementedError()
+
+def Chain() -> Parser[T]:
+    raise NotImplementedError()
 
 def Satisfy(parser: Parser[T], predicate: Optional[Callable[[ParseResult[T]], bool]] = None, on_fail: Optional[Callable[[ParseResult[T]], ParseError]] = None) -> Parser[T]:
     def function(pos: Position, stream: StringStream) -> ParseResult[T]:
@@ -222,6 +260,40 @@ def Satisfy(parser: Parser[T], predicate: Optional[Callable[[ParseResult[T]], bo
             return result
         else:
             raise on_fail(result) if on_fail is not None else ParseError(result.position, "Predicate not satisfied!")
+
+    return Parser(function)
+
+def Success(parser: Parser, default: T) -> Parser[T]:
+    def function(pos: Position, stream: StringStream) -> ParseResult[T]:
+        try:
+            return parser.parse(stream)
+        except ParseError as e:
+            return ParseResult(pos, default)
+
+    return Parser(function)
+
+def Failure(parser: Parser[T]) -> Parser[ParseError]:
+    def function(pos: Position, stream: StringStream) -> ParseResult[ParseError]:
+        error : Optional[ParseError] = None
+
+        try:
+            parser.parse(stream)
+        except ParseError as e:
+            error = e
+
+        if error is None:
+            raise ParseError(pos, "Unexpected Success")
+
+        return ParseResult(pos, error)
+
+    return Parser(function)
+
+def Callback(parser: Parser[T], func: Callable[[ParseResult[T]], None]) -> Parser[T]:
+    def function(pos: Position, stream: StringStream) -> ParseResult[T]:
+        result = parser.parse(stream)
+        
+        func(result)
+        return result
 
     return Parser(function)
 
@@ -274,7 +346,7 @@ def Whitespaces(value: Optional[str] = None) -> Parser[str]:
 
 def EOS() -> Parser[None]:
     def function(pos: Position, stream: StringStream) -> ParseResult[None]:
-        if stream.is_eos():
+        if not stream.is_eos():
             raise ParseError.expectation(f"EOS", f"'{stream.peek()}'", pos)
 
         return ParseResult(pos, None)
