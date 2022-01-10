@@ -1,5 +1,7 @@
-from typing import Any, Tuple, cast
-from .pylpc import *
+import re
+from typing import Any, Callable, Generic, List, Optional, Tuple, TypeVar, cast
+
+from pylpc.pylpc import T, char, ParseError, ParseResult, Parser, Position, Regex, StringStream
 
 T1 = TypeVar("T1")
 T2 = TypeVar("T2")

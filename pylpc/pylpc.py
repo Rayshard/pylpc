@@ -1,6 +1,5 @@
-from abc import ABC
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Generic, List, Optional, Set, Tuple, TypeAlias, TypeVar
+from typing import Callable, Dict, Generic, List, Optional, TypeAlias, TypeVar
 import re
 
 char = str
@@ -198,62 +197,4 @@ class Parser(Generic[T]):
         except ParseError as e:
             stream.set_offset(stream_start)
             raise e
-
-# class Lexer:
-#     PatternID : TypeAlias = str
-
-#     @dataclass
-#     class Token:
-#         patternID: 'Lexer.PatternID'
-#         position: Position
-#         value: str
-
-#         def is_eos(self) -> bool:
-#             return self.patternID == Lexer.EOS_PATTERN_ID()
-
-#         def is_unknown(self) -> bool:
-#             return self.patternID == Lexer.UNKNOWN_PATTERN_ID()
-
-#     NoAction : TypeAlias = None
-#     Procedure : TypeAlias = Callable[[StringStream, Token], None]
-#     Function : TypeAlias = Callable[[StringStream, Token], str]
-#     Action : TypeAlias = NoAction | Procedure | Function
-
-#     @dataclass
-#     class Pattern:
-#         id: 'Lexer.PatternID'
-#         regex: Regex
-#         action: 'Lexer.Action'
-
-#     @staticmethod
-#     def OnLexUnknown(stream: StringStream, token: Token) -> None:
-#         raise Exception(f"Unrecognized token: '{token.value}' at {str(stream.get_position())}")
-
-#     def __init__(self, on_eos: Action = None, on_unknown: Action = OnLexUnknown) -> None:
-#         self.__patterns : List[Lexer.Pattern] = []
-#         self.__patternMap: Dict[Lexer.PatternID, int] = {}
-#         self.__patternEOS : Lexer.Pattern = Lexer.Pattern(Lexer.EOS_PATTERN_ID(), Regex(), on_eos)
-#         self.__patternUnknown : Lexer.Pattern = Lexer.Pattern(Lexer.UNKNOWN_PATTERN_ID(), Regex(), on_unknown)
-
-#     def add_pattern(self, regex: Regex, id: Optional[PatternID] = None, action: Optional[Action] = None) -> Pattern:
-#         raise NotImplementedError()
-
-#     def lex(self, stream: StringStream) -> Token:
-#         raise NotImplementedError()
-
-#     def has_pattern(self, id: PatternID) -> bool:
-#         raise NotImplementedError()
-
-#     def get_pattern(self, id: PatternID) -> Pattern:
-#         raise NotImplementedError()
-
-#     def create_lexeme(self, ignores: Optional[Set[PatternID]] = None, value: Optional[str] = None) -> Parser[str]:
-#         raise NotImplementedError()
-
-#     @staticmethod
-#     def EOS_PATTERN_ID() -> PatternID:
-#         return "<EOS>"
-
-#     @staticmethod
-#     def UNKNOWN_PATTERN_ID() -> PatternID:
-#         return "<UNKNOWN>"
+            

@@ -1,6 +1,7 @@
-from typing import OrderedDict
+from dataclasses import dataclass
+from typing import List, OrderedDict
 from pylpc.parsers import Char, Longest, Map, Satisfy, Terminal
-from .pylpc import *
+from pylpc.pylpc import ParseError, ParseResult, Parser, Position, Regex, StringStream
 
 def EOS_PATTERN_ID():
     return "<EOS>"
