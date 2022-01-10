@@ -1,7 +1,7 @@
 import re
 from typing import Any, Callable, Generic, List, Optional, Tuple, TypeVar, cast
 
-from pylpc.pylpc import T, char, ParseError, ParseResult, Parser, Position, Regex, StringStream
+from pylpc.pylpc import T, Location, char, ParseError, ParseResult, Parser, Regex, StringStream
 
 T1 = TypeVar("T1")
 T2 = TypeVar("T2")
@@ -10,11 +10,11 @@ T4 = TypeVar("T4")
 T5 = TypeVar("T5")
 
 def Map(parser: Parser[T], func: Callable[[ParseResult[T]], T1]) -> Parser[T1]:
-    def function(pos: Position, stream: StringStream) -> ParseResult[T1]:
+    def function(loc: Location, stream: StringStream) -> ParseResult[T1]:
         result = parser.parse(stream)
-        position = result.position
+        location = result.location
 
-        return ParseResult[T1](position, func(result))
+        return ParseResult[T1](location, func(result))
 
     return Parser[T1](function)
 
@@ -25,7 +25,7 @@ class Reference(Generic[T]):
     def set(self, parser: Parser[T]) -> None:
         self.__reference[0] = [parser]
 
-    def __call__(self, pos: Position, stream: StringStream) -> ParseResult[T]:
+    def __call__(self, loc: Location, stream: StringStream) -> ParseResult[T]:
         return self.__reference[0][0].parse(stream)
 
 class TryValue(Generic[T]):
@@ -59,12 +59,12 @@ TryResult = ParseResult[TryValue[T]]
 TryParser = Parser[TryValue[T]]
 
 def Try(parser: Parser[T]) -> TryParser[T]:
-    def function(pos: Position, stream: StringStream) -> TryResult[T]:
+    def function(loc: Location, stream: StringStream) -> TryResult[T]:
         try:
             result = parser.parse(stream)
-            return TryResult(result.position, TryValue.CreateSuccess(result.value))
+            return TryResult(result.location, TryValue.CreateSuccess(result.value))
         except ParseError as e:
-            return TryResult(e.get_position(), TryValue.CreateError(e))
+            return TryResult(e.get_location(), TryValue.CreateError(e))
 
     return TryParser[T](function)
 
@@ -81,7 +81,7 @@ def Count(parser: Parser[T], min: int, max: Optional[int]) -> CountParser[T]:
         if max < min:
             raise ValueError(f"max must be at least min: {max} < {min}")
 
-    def function(pos: Position, stream: StringStream) -> CountResult[T]:
+    def function(loc: Location, stream: StringStream) -> CountResult[T]:
         results = CountValue[T]()
 
         while max is None or len(results) < max:
@@ -91,10 +91,10 @@ def Count(parser: Parser[T], min: int, max: Optional[int]) -> CountParser[T]:
                 if len(results) >= min:
                     break
 
-                error = ParseError.expectation(f"at least {min}", f"only {len(results)}", stream.get_position())
-                raise ParseError.create(e, error)
+                error = ParseError.expectation(f"at least {min}", f"only {len(results)}", Location(stream.get_name(), stream.get_position()))
+                raise ParseError.combine(e, error)
 
-        return CountResult[T](pos if len(results) == 0 else results[0].position, results)
+        return CountResult[T](loc if len(results) == 0 else results[0].location, results)
 
     return CountParser[T](function)
 
@@ -115,9 +115,9 @@ SeqResult = ParseResult[SeqValue]
 SeqParser = Parser[SeqValue]
 
 def Seq(*parsers: Parser[Any]) -> SeqParser:
-    def function(pos: Position, stream: StringStream) -> SeqResult:
+    def function(loc: Location, stream: StringStream) -> SeqResult:
         results = SeqValue([parser.parse(stream) for parser in parsers])
-        return SeqResult(pos if len(results) == 0 else results[0].position, results)
+        return SeqResult(loc if len(results) == 0 else results[0].location, results)
 
     return SeqParser(function)
 
@@ -162,17 +162,17 @@ MaybeResult = ParseResult[MaybeValue[T]]
 MaybeParser = Parser[MaybeValue[T]]
 
 def Maybe(parser: Parser[T]) -> MaybeParser[T]:
-    def function(pos: Position, stream: StringStream) -> MaybeResult[T]:
+    def function(loc: Location, stream: StringStream) -> MaybeResult[T]:
         try:
             result = parser.parse(stream)
-            return MaybeResult(result.position, MaybeValue.CreateSome(result.value))
+            return MaybeResult(result.location, MaybeValue.CreateSome(result.value))
         except ParseError as e:
-            return MaybeResult(e.get_position(), MaybeValue.CreateNone())
+            return MaybeResult(e.get_location(), MaybeValue.CreateNone())
 
     return MaybeParser[T](function)
 
 def Longest(parsers: List[Parser[T]]) -> Parser[T]:
-    def function(pos: Position, stream: StringStream) -> ParseResult[T]:
+    def function(loc: Location, stream: StringStream) -> ParseResult[T]:
         stream_start, greatest_length = stream.get_offset(), 0
         result : Optional[ParseResult[T]] = None
         errors : List[ParseError] = []
@@ -188,8 +188,8 @@ def Longest(parsers: List[Parser[T]]) -> Parser[T]:
                     errors.clear() # We put this here to save memory
             except ParseError as e:
                 if result is None:
-                    e_length = stream.get_offset_from_pos(e.get_position())
-                    errors_length = 0 if len(errors) == 0 else stream.get_offset_from_pos(errors[0].get_position())
+                    e_length = stream.get_offset_from_pos(e.get_location().position)
+                    errors_length = 0 if len(errors) == 0 else stream.get_offset_from_pos(errors[0].get_location().position)
 
                     if e_length == errors_length:
                         errors.append(e)
@@ -199,7 +199,7 @@ def Longest(parsers: List[Parser[T]]) -> Parser[T]:
             stream.set_offset(stream_start)
 
         if result is None:
-            raise errors.pop() if len(errors) == 1 else ParseError(pos, "No option parsed!", errors)
+            raise errors.pop() if len(errors) == 1 else ParseError(loc, "No option parsed!", errors)
 
         stream.set_offset(stream_start + greatest_length)
         return result
@@ -210,23 +210,23 @@ def FirstSuccess(parsers: List[Parser[T]]) -> Parser[T]:
     raise NotImplementedError()
 
 def Named(name: str, parser: Parser[T]) -> Parser[T]:
-    def function(pos: Position, stream: StringStream) -> ParseResult[T]:
+    def function(loc: Location, stream: StringStream) -> ParseResult[T]:
         try:
             return parser.parse(stream)
         except ParseError as e:
-            raise ParseError.create(ParseError(e.get_position(), f"Unable to parse {name}"), e)
+            raise ParseError.combine(ParseError(e.get_location(), f"Unable to parse {name}"), e)
 
     return Parser(function)
 
 def Prefixed(prefix: Parser[T1], parser: Parser[T2]) -> Parser[T2]:
-    def function(pos: Position, stream: StringStream) -> ParseResult[T2]:
+    def function(loc: Location, stream: StringStream) -> ParseResult[T2]:
         prefix.parse(stream)
         return parser.parse(stream)
 
     return Parser(function)
 
 def Suffixed(parser: Parser[T1], suffix: Parser[T2]) -> Parser[T1]:
-    def function(pos: Position, stream: StringStream) -> ParseResult[T1]:
+    def function(loc: Location, stream: StringStream) -> ParseResult[T1]:
         result = parser.parse(stream)
         suffix.parse(stream)
         return result
@@ -237,8 +237,8 @@ def Between(prefix: Parser[T1], parser: Parser[T], suffix: Parser[T2]) -> Parser
     return Suffixed(Prefixed(prefix, parser), suffix)
 
 def Value(value: T) -> Parser[T]:
-    def function(pos: Position, stream: StringStream) -> ParseResult[T]:
-        return ParseResult(pos, value)
+    def function(loc: Location, stream: StringStream) -> ParseResult[T]:
+        return ParseResult(loc, value)
 
     return Parser(function)
 
@@ -255,27 +255,27 @@ def Chain() -> Parser[T]:
     raise NotImplementedError()
 
 def Satisfy(parser: Parser[T], predicate: Optional[Callable[[ParseResult[T]], bool]] = None, on_fail: Optional[Callable[[ParseResult[T]], ParseError]] = None) -> Parser[T]:
-    def function(pos: Position, stream: StringStream) -> ParseResult[T]:
+    def function(loc: Location, stream: StringStream) -> ParseResult[T]:
         result = parser.parse(stream)
 
         if predicate is not None:
             return result
         else:
-            raise on_fail(result) if on_fail is not None else ParseError(result.position, "Predicate not satisfied!")
+            raise on_fail(result) if on_fail is not None else ParseError(result.location, "Predicate not satisfied!")
 
     return Parser(function)
 
 def Success(parser: Parser, default: T) -> Parser[T]:
-    def function(pos: Position, stream: StringStream) -> ParseResult[T]:
+    def function(loc: Location, stream: StringStream) -> ParseResult[T]:
         try:
             return parser.parse(stream)
         except ParseError as e:
-            return ParseResult(pos, default)
+            return ParseResult(loc, default)
 
     return Parser(function)
 
 def Failure(parser: Parser[T]) -> Parser[ParseError]:
-    def function(pos: Position, stream: StringStream) -> ParseResult[ParseError]:
+    def function(loc: Location, stream: StringStream) -> ParseResult[ParseError]:
         error : Optional[ParseError] = None
 
         try:
@@ -284,14 +284,14 @@ def Failure(parser: Parser[T]) -> Parser[ParseError]:
             error = e
 
         if error is None:
-            raise ParseError(pos, "Unexpected Success")
+            raise ParseError(loc, "Unexpected Success")
 
-        return ParseResult(pos, error)
+        return ParseResult(loc, error)
 
     return Parser(function)
 
 def Callback(parser: Parser[T], func: Callable[[ParseResult[T]], None]) -> Parser[T]:
-    def function(pos: Position, stream: StringStream) -> ParseResult[T]:
+    def function(loc: Location, stream: StringStream) -> ParseResult[T]:
         result = parser.parse(stream)
         
         func(result)
@@ -300,19 +300,19 @@ def Callback(parser: Parser[T], func: Callable[[ParseResult[T]], None]) -> Parse
     return Parser(function)
 
 def Terminal(regex: Regex, value: Optional[str] = None) -> Parser[str]:
-    def function(pos: Position, stream: StringStream) -> ParseResult[str]:
+    def function(loc: Location, stream: StringStream) -> ParseResult[str]:
         regex_match : Optional[re.Match] = regex.match(stream.get_data(stream.get_offset()))
 
         if regex_match is None:
-            raise ParseError(pos, f"No match found for regular expression: {regex.get_pattern()}")
+            raise ParseError(loc, f"No match found for regular expression: {regex.get_pattern()}")
                 
         string = regex_match[0]
 
         if value is not None and string != value:
-            raise ParseError.expectation(f"'{value}'", f"'{string}'", pos)
+            raise ParseError.expectation(f"'{value}'", f"'{string}'", loc)
 
         stream.ignore(len(string))
-        return ParseResult(pos, string)
+        return ParseResult(loc, string)
 
     return Parser(function)
 
@@ -347,16 +347,16 @@ def Whitespaces(value: Optional[str] = None) -> Parser[str]:
     return Terminal(Regex("[\\s]+"), value)
 
 def EOS() -> Parser[None]:
-    def function(pos: Position, stream: StringStream) -> ParseResult[None]:
+    def function(loc: Location, stream: StringStream) -> ParseResult[None]:
         if not stream.is_eos():
-            raise ParseError.expectation(f"EOS", f"'{stream.peek()}'", pos)
+            raise ParseError.expectation(f"EOS", f"'{stream.peek()}'", loc)
 
-        return ParseResult(pos, None)
+        return ParseResult(loc, None)
 
     return Parser(function)
 
 def Error(message: str) -> Parser[None]:
-    def function(pos: Position, stream: StringStream) -> ParseResult[None]:
-        raise ParseError(pos, message)
+    def function(loc: Location, stream: StringStream) -> ParseResult[None]:
+        raise ParseError(loc, message)
 
     return Parser(function)

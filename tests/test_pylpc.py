@@ -1,6 +1,6 @@
 from pylpc import __version__
 from pylpc.parsers import Char, Chars, Count, Letter, Letters, Map, Reference, Seq, Try, Value
-from pylpc.pylpc import ParseError, ParseResult, Parser, char, Position, StringStream
+from pylpc.pylpc import Location, ParseError, ParseResult, Parser, char, Position, StringStream
 
 def test_version():
     assert __version__ == '0.1.0'
@@ -70,15 +70,15 @@ def test_Map():
 
 def test_Reference():
     reference = Reference[char]()
-    function = Parser(lambda pos, stream: Parser(reference).parse(stream))
+    function = Parser(lambda loc, stream: Parser(reference).parse(stream))
 
     reference.set(Value('b'))
     assert function.parse("a").value == 'b'
 
     other = reference
     
-    def other_func(position: Position, stream: StringStream) -> ParseResult[char]:
-        raise ParseError(position, "Hiya")
+    def other_func(loc: Location, stream: StringStream) -> ParseResult[char]:
+        raise ParseError(loc, "Hiya")
 
     other.set(Parser(other_func))
 
@@ -89,13 +89,13 @@ def test_Reference():
         pass
 
 def test_Try():
-    expected_error = ParseError(Position(100, 250), "The error!")
+    expected_error = ParseError(Location("", Position(100, 250)), "The error!")
 
-    def func(pos: Position, stream: StringStream) -> ParseResult[int]:
+    def func(loc: Location, stream: StringStream) -> ParseResult[int]:
         if stream.peek() != 'q':
             raise expected_error
 
-        return ParseResult(pos, 123)
+        return ParseResult(loc, 123)
 
     parser = Try(Parser(func))
 
@@ -106,11 +106,11 @@ def test_Try():
     assert error.IsError() and error.ExtractError() == expected_error
 
 def test_Count():
-    def func(pos: Position, stream: StringStream) -> ParseResult[char]:
+    def func(loc: Location, stream: StringStream) -> ParseResult[char]:
         if not stream.peek().isalpha():
-            raise ParseError.expectation("a letter", f"'{stream.peek()}'", pos)
+            raise ParseError.expectation("a letter", f"'{stream.peek()}'", loc)
 
-        return ParseResult(pos, stream.get())
+        return ParseResult(loc, stream.get())
 
     parser = Count(Parser(func), 1, 3)
     stream = StringStream("abcef g ")
@@ -118,14 +118,14 @@ def test_Count():
     try:
         value = parser.parse(stream).value
         assert len(value) == 3
-        assert value[0].position == Position(1, 1) and value[0].value == 'a'
-        assert value[1].position == Position(1, 2) and value[1].value == 'b'
-        assert value[2].position == Position(1, 3) and value[2].value == 'c'
+        assert value[0].location.position == Position(1, 1) and value[0].value == 'a'
+        assert value[1].location.position == Position(1, 2) and value[1].value == 'b'
+        assert value[2].location.position == Position(1, 3) and value[2].value == 'c'
 
         value = parser.parse(stream).value
         assert len(value) == 2
-        assert value[0].position == Position(1, 4) and value[0].value == 'e'
-        assert value[1].position == Position(1, 5) and value[1].value == 'f'
+        assert value[0].location.position == Position(1, 4) and value[0].value == 'e'
+        assert value[1].location.position == Position(1, 5) and value[1].value == 'f'
 
         try:
             parser.parse(stream)
@@ -135,7 +135,7 @@ def test_Count():
 
         value = parser.parse(stream).value
         assert len(value) == 1
-        assert value[0].position == Position(1, 7) and value[0].value == 'g'
+        assert value[0].location.position == Position(1, 7) and value[0].value == 'g'
     except ParseError as e:
         assert False
 

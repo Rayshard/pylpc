@@ -13,6 +13,14 @@ class Position:
     def __str__(self) -> str:
         return f"({self.line}, {self.column})"
 
+@dataclass
+class Location:
+    name: str
+    position: Position = Position(1, 1)
+
+    def __str__(self) -> str:
+        return f"{self.name}:{self.position.line}:{self.position.column}"
+
 class Regex:
     def __init__(self, pattern: str = "") -> None:
         self.__pattern : str = pattern
@@ -30,7 +38,7 @@ class StringStream:
     @dataclass(frozen=True)
     class Token:
         id : 'StringStream.TokenID'
-        position : Position  
+        location : Location  
         value : str
 
     def __init__(self, data: str, name: Optional[str] = None) -> None:
@@ -75,7 +83,7 @@ class StringStream:
 
     def set_token(self, position: Position, length: int, id: TokenID) -> Token:
         offset = self.get_offset_from_pos(position)
-        token = StringStream.Token(id, position, self.get_data(offset, length))
+        token = StringStream.Token(id, Location(self.__name, position), self.get_data(offset, length))
 
         self.__tokens[offset] = token
         return token
@@ -147,15 +155,15 @@ class StringStream:
         return self.__offset >= len(self.__data)
 
 class ParseError(Exception):
-    def __init__(self, pos: Position = Position(1, 1), msg: str = "", trace: Optional[List['ParseError']] = None) -> None:
-        super().__init__(f"Error @ {pos}: {msg}")
+    def __init__(self, loc: Location, msg: str = "", trace: Optional[List['ParseError']] = None) -> None:
+        super().__init__(f"({loc}) Error: {msg}")
         
-        self.__position : Position = pos
+        self.__location : Location = loc
         self.__message : str = msg
         self.__trace : List[ParseError] = [] if trace is None else list(trace)
         
-    def get_position(self) -> Position:
-        return self.__position
+    def get_location(self) -> Location:
+        return self.__location
 
     def get_message(self) -> str:
         return self.__message
@@ -172,32 +180,32 @@ class ParseError(Exception):
         return str(self) + trace_message
 
     @staticmethod
-    def create(e1: 'ParseError', e2: 'ParseError') -> 'ParseError':
-        return ParseError(e1.__position, e1.__message, e1.__trace + [e2])
+    def combine(e1: 'ParseError', e2: 'ParseError') -> 'ParseError':
+        return ParseError(e1.__location, e1.__message, e1.__trace + [e2])
 
     @staticmethod
-    def expectation(expected: str, found: str, pos: Position) -> 'ParseError':
-        return ParseError()
+    def expectation(expected: str, found: str, loc: Location) -> 'ParseError':
+        return ParseError(loc, f"Expected {expected}, but found {found}")
 
 T = TypeVar('T')
 
 @dataclass
 class ParseResult(Generic[T]):
-    position : Position
+    location : Location
     value : T
 
 class Parser(Generic[T]):
-    def __init__(self, parsable: Callable[[Position, StringStream], ParseResult[T]]) -> None:
+    def __init__(self, parsable: Callable[[Location, StringStream], ParseResult[T]]) -> None:
         super().__init__()
 
-        self.__function : Callable[[Position, StringStream], ParseResult[T]] = lambda position, stream: parsable(position, stream)
+        self.__function : Callable[[Location, StringStream], ParseResult[T]] = lambda position, stream: parsable(position, stream)
 
     def parse(self, input: StringStream | str) -> ParseResult[T]:
         stream = input if isinstance(input, StringStream) else StringStream(input)
         stream_start : int = stream.get_offset()
 
         try:
-            return self.__function(stream.get_position(), stream)
+            return self.__function(Location(stream.get_name(), stream.get_position()), stream)
         except ParseError as e:
             stream.set_offset(stream_start)
             raise e

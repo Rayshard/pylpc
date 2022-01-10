@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List, OrderedDict
 from pylpc.parsers import Char, Longest, Map, Satisfy, Terminal
-from pylpc.pylpc import ParseError, ParseResult, Parser, Position, Regex, StringStream
+from pylpc.pylpc import ParseError, ParseResult, Parser, Location, Regex, StringStream
 
 def EOS_PATTERN_ID():
     return "<EOS>"
@@ -22,11 +22,11 @@ class Token:
 def Lexer(patterns: List[Pattern]) -> Parser[Token]:
     parsers = OrderedDict[str, Parser[Token]]()
     
-    def eos_function(pos: Position, stream: StringStream) -> ParseResult[Token]:
+    def eos_function(loc: Location, stream: StringStream) -> ParseResult[Token]:
         if stream.is_eos():
-            return ParseResult(pos, Token(EOS_PATTERN_ID(), ""))
+            return ParseResult(loc, Token(EOS_PATTERN_ID(), ""))
 
-        raise ParseError.expectation(f"'{EOS_PATTERN_ID()}'", f"'{stream.peek()}'", pos)
+        raise ParseError.expectation(f"'{EOS_PATTERN_ID()}'", f"'{stream.peek()}'", loc)
 
     parsers[EOS_PATTERN_ID()] = Parser(eos_function)
 
@@ -45,14 +45,14 @@ def Lexer(patterns: List[Pattern]) -> Parser[Token]:
     pattern_ids = {idx: id for idx, id in enumerate(parsers)}
     token_idxs = {id: idx for idx, id in pattern_ids.items()}
 
-    def function(pos: Position, stream: StringStream) -> ParseResult[Token]:
+    def function(loc: Location, stream: StringStream) -> ParseResult[Token]:
         token = stream.get_token()
             
         if token is None:
             result = longest.parse(stream)
-            token = stream.set_token(result.position, len(result.value.text), token_idxs[result.value.id])
+            token = stream.set_token(result.location.position, len(result.value.text), token_idxs[result.value.id])
         
-        return ParseResult(token.position, Token(pattern_ids[token.id], token.value))
+        return ParseResult(token.location, Token(pattern_ids[token.id], token.value))
 
     return Parser(function)
 
@@ -61,7 +61,7 @@ def Lexeme(lexer: Parser[Token], id: str) -> Parser[str]:
         return result.value.id == id
 
     def on_fail(result: ParseResult[Token]) -> ParseError:
-        return ParseError.expectation(f"'{id}'", f"'{result.value.id}'", result.position)
+        return ParseError.expectation(f"'{id}'", f"'{result.value.id}'", result.location)
 
     return Map(Satisfy(lexer, predicate, on_fail), lambda result: result.value.text)
 
