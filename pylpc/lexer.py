@@ -61,7 +61,7 @@ def Lexeme(lexer: Parser[Token], id: str) -> Parser[str]:
         return result.value.id == id
 
     def on_fail(result: ParseResult[Token]) -> ParseError:
-        return ParseError.expectation(f"'{id}'", f"'{result.value.id}({result.value.text})'", result.location)
+        return ParseError.expectation(f"'{id}'", f"'{result.value.id}" + (f": {result.value.text}" if len(result.value.text) != 0 else "") + "'", result.location)
 
     return Map(Satisfy(lexer, predicate, on_fail), lambda result: result.value.text)
 
