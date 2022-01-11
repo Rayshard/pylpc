@@ -1,5 +1,5 @@
 import re
-from typing import Any, Callable, Generic, List, Optional, Tuple, TypeVar, cast
+from typing import Any, Callable, Generic, List, Optional, Tuple, TypeVar, Union, cast
 
 from pylpc.pylpc import T, Location, char, ParseError, ParseResult, Parser, Regex, StringStream
 
@@ -29,7 +29,7 @@ class Reference(Generic[T]):
         return self.__reference[0][0].parse(stream)
 
 class TryValue(Generic[T]):
-    def __init__(self, variant: T | ParseError, is_success: bool) -> None:
+    def __init__(self, variant: Union[T, ParseError], is_success: bool) -> None:
         super().__init__()
 
         self.__variant = variant

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, Dict, Generic, List, Optional, TypeAlias, TypeVar
+from typing import Callable, Dict, Generic, List, Optional, Type, TypeVar, Union
 import re
 
 char = str
@@ -33,11 +33,9 @@ class Regex:
         return self.__pattern
 
 class StringStream:
-    TokenID : TypeAlias = int
-
     @dataclass(frozen=True)
     class Token:
-        id : 'StringStream.TokenID'
+        id : int
         location : Location  
         value : str
 
@@ -81,7 +79,7 @@ class StringStream:
     def peek_token(self) -> Optional[Token]:
         return self.__tokens.get(self.__offset)
 
-    def set_token(self, position: Position, length: int, id: TokenID) -> Token:
+    def set_token(self, position: Position, length: int, id: int) -> Token:
         offset = self.get_offset_from_pos(position)
         token = StringStream.Token(id, Location(self.__name, position), self.get_data(offset, length))
 
@@ -200,7 +198,7 @@ class Parser(Generic[T]):
 
         self.__function : Callable[[Location, StringStream], ParseResult[T]] = lambda position, stream: parsable(position, stream)
 
-    def parse(self, input: StringStream | str) -> ParseResult[T]:
+    def parse(self, input: Union[StringStream, str]) -> ParseResult[T]:
         stream = input if isinstance(input, StringStream) else StringStream(input)
         stream_start : int = stream.get_offset()
 
