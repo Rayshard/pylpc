@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, OrderedDict
+from typing import List, Optional, OrderedDict
 from pylpc.parsers import Char, Longest, Map, Satisfy, Terminal
 from pylpc.pylpc import ParseError, ParseResult, Parser, Location, Regex, StringStream
 
@@ -56,14 +56,16 @@ def Lexer(patterns: List[Pattern]) -> Parser[Token]:
 
     return Parser(function)
 
-def Lexeme(lexer: Parser[Token], id: str) -> Parser[str]:
+def Lexeme(lexer: Parser[Token], id: str, value: Optional[str] = None) -> Parser[str]:
     def predicate(result: ParseResult[Token]) -> bool:
-        return result.value.id == id
+        if result.value.id != id:
+            raise ParseError.expectation(f"'{id}'", f"'{result.value.id}" + (f": {result.value.text}" if len(result.value.text) != 0 else "") + "'", result.location)
+        elif value is not None and result.value.text != value:
+            raise ParseError.expectation(f"'{value}'", f"'{result.value.text}", result.location)
 
-    def on_fail(result: ParseResult[Token]) -> ParseError:
-        return ParseError.expectation(f"'{id}'", f"'{result.value.id}" + (f": {result.value.text}" if len(result.value.text) != 0 else "") + "'", result.location)
+        return True
 
-    return Map(Satisfy(lexer, predicate, on_fail), lambda result: result.value.text)
+    return Map(Satisfy(lexer, predicate), lambda result: result.value.text)
 
 def EOSLexeme(lexer) -> Parser[str]:
     return Lexeme(lexer, EOS_PATTERN_ID())
