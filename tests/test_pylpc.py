@@ -1,5 +1,5 @@
 from pylpc import __version__
-from pylpc.parsers import AlphaNums, Char, Chars, Count, Digits, FirstSuccess, Letter, Letters, Longest, Map, Maybe, Reference, Seq, Try, Value
+from pylpc.parsers import AlphaNums, Char, Chars, Count, Digits, FirstSuccess, Letter, Letters, Longest, Map, Maybe, Reference, Seq, Try, Value, Whitespaces
 from pylpc.pylpc import Location, ParseError, ParseResult, Parser, char, Position, StringStream
 
 def test_version():
@@ -61,6 +61,9 @@ def test_StringStream():
     assert False # peek_token
     assert False # set_token
     assert False # clear_tokens
+
+def test_IgnoreOnParse():
+    assert Digits().parse("   123", Whitespaces()).value == "123"
 
 def test_Lexer():
     assert False

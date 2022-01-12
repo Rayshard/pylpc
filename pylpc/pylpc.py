@@ -198,9 +198,17 @@ class Parser(Generic[T]):
 
         self.__function : Callable[[Location, StringStream], ParseResult[T]] = lambda position, stream: parsable(position, stream)
 
-    def parse(self, input: Union[StringStream, str]) -> ParseResult[T]:
+    def parse(self, input: Union[StringStream, str], ignore: Optional['Parser[None]'] = None) -> ParseResult[T]:
         stream = input if isinstance(input, StringStream) else StringStream(input)
         stream_start : int = stream.get_offset()
+
+        # skip ignore
+        if ignore is not None:
+            while True:
+                try:
+                    ignore.parse(stream)
+                except ParseError as e:
+                    break
 
         try:
             return self.__function(Location(stream.get_name(), stream.get_position()), stream)
