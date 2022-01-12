@@ -58,10 +58,10 @@ def Lexer(patterns: List[Pattern]) -> Parser[Token]:
 
 def Lexeme(lexer: Parser[Token], id: str, value: Optional[str] = None) -> Parser[str]:
     def predicate(result: ParseResult[Token]) -> bool:
-        if result.value.id != id:
-            raise ParseError.expectation(f"'{id}'", f"'{result.value.id}" + (f": {result.value.text}" if len(result.value.text) != 0 else "") + "'", result.location)
-        elif value is not None and result.value.text != value:
-            raise ParseError.expectation(f"'{value}'", f"'{result.value.text}", result.location)
+        if result.value.id != id or (value is not None and result.value.text != value):
+            expected =  "'" + id + ("" if value is None or len(value) == 0 else f"({value})") + "'"
+            found =  "'" + result.value.id + ("" if len(result.value.text) == 0 else f"({result.value.text})") + "'"
+            raise ParseError.expectation(expected, found, result.location)
 
         return True
 
