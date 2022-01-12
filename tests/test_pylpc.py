@@ -1,5 +1,5 @@
 from pylpc import __version__
-from pylpc.parsers import Char, Chars, Count, Letter, Letters, Map, Reference, Seq, Try, Value
+from pylpc.parsers import AlphaNums, Char, Chars, Count, Digits, FirstSuccess, Letter, Letters, Longest, Map, Maybe, Reference, Seq, Try, Value
 from pylpc.pylpc import Location, ParseError, ParseResult, Parser, char, Position, StringStream
 
 def test_version():
@@ -163,16 +163,36 @@ def test_Seq():
     assert input.get_offset() == 5
 
 def test_Maybe():
-    assert False
+    input = StringStream("123abc abc 123abc")
+    parser = Maybe(Digits())
+
+    value = parser.parse(input).value
+    assert value.IsSuccess() and value.ExtractSuccess() == "123"
+
+    value = parser.parse(input).value
+    assert not value.IsSuccess()
+
+    assert input.get_offset() == 3
 
 def test_Variant():
     assert False
 
 def test_Longest():
-    assert False
+    input = StringStream("123 abc 123abc")
+    parser = Longest([Digits(), Letters(), Chars("123abc")])
+
+    assert parser.parse(input).value == "123"
+    input.ignore(1)
+    assert parser.parse(input).value == "abc"
+    input.ignore(1)
+    assert parser.parse(input).value == "123abc"
 
 def test_FirstSuccess():
-    assert False
+    input = StringStream("123abc abc 123abc")
+
+    assert FirstSuccess([Letters(), Digits(), AlphaNums()]).parse("123abc").value == "123"
+    assert FirstSuccess([Letters(), AlphaNums(), Digits()]).parse("123abc").value == "123abc"
+    assert FirstSuccess([Letters(), AlphaNums(), Digits()]).parse("qwe123abc").value == "qwe"
 
 def test_Named():
     assert False

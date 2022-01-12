@@ -207,7 +207,27 @@ def Longest(parsers: List[Parser[T]]) -> Parser[T]:
     return Parser(function)
 
 def FirstSuccess(parsers: List[Parser[T]]) -> Parser[T]:
-    raise NotImplementedError()
+    def function(loc: Location, stream: StringStream) -> ParseResult[T]:
+        stream_start, greatest_length = stream.get_offset(), 0
+        errors : List[ParseError] = []
+
+        for parser in parsers:
+            try:
+                return parser.parse(stream)
+            except ParseError as e:
+                e_length = stream.get_offset_from_pos(e.get_location().position)
+                errors_length = 0 if len(errors) == 0 else stream.get_offset_from_pos(errors[0].get_location().position)
+
+                if e_length == errors_length:
+                    errors.append(e)
+                elif e_length > errors_length:
+                    errors = [e]
+
+            stream.set_offset(stream_start)
+
+        raise errors.pop() if len(errors) == 1 else ParseError(loc, "No option parsed!", errors)
+
+    return Parser(function)
 
 def Named(name: str, parser: Parser[T]) -> Parser[T]:
     def function(loc: Location, stream: StringStream) -> ParseResult[T]:
@@ -335,10 +355,10 @@ def Digits(value: Optional[str] = None) -> Parser[str]:
     return Terminal(Regex("[0-9]+"), value)
 
 def AlphaNum(value: Optional[char] = None) -> Parser[char]:
-    return Terminal(Regex("[a-zA-Z]"), value)
+    return Terminal(Regex("[a-zA-Z0-9]"), value)
 
 def AlphaNums(value: Optional[str] = None) -> Parser[str]:
-    return Terminal(Regex("[a-zA-Z]+"), value)
+    return Terminal(Regex("[a-zA-Z0-9]+"), value)
 
 def Whitespace(value: Optional[char] = None) -> Parser[char]:
     return Terminal(Regex("[\\s]"), value)
