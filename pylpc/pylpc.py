@@ -186,6 +186,7 @@ class ParseError(Exception):
         return ParseError(loc, f"Expected {expected}, but found {found}")
 
 T = TypeVar('T')
+Q = TypeVar('Q')
 
 @dataclass
 class ParseResult(Generic[T]):
@@ -198,20 +199,27 @@ class Parser(Generic[T]):
 
         self.__function : Callable[[Location, StringStream], ParseResult[T]] = lambda position, stream: parsable(position, stream)
 
-    def parse(self, input: Union[StringStream, str], ignore: Optional['Parser[None]'] = None) -> ParseResult[T]:
+    def parse(self, input: Union[StringStream, str]) -> ParseResult[T]:
         stream = input if isinstance(input, StringStream) else StringStream(input)
         stream_start : int = stream.get_offset()
-
-        # skip ignore
-        if ignore is not None:
-            while True:
-                try:
-                    ignore.parse(stream)
-                except ParseError as e:
-                    break
 
         try:
             return self.__function(Location(stream.get_name(), stream.get_position()), stream)
         except ParseError as e:
             stream.set_offset(stream_start)
             raise e
+
+    def __lshift__(self, discard: 'Parser[Q]') -> 'Parser[T]':
+        def function(loc: Location, stream: StringStream) -> ParseResult[T]:
+            result = self.parse(stream)
+            discard.parse(stream)
+            return result
+
+        return Parser(function)
+
+    def __rshift__(self, keep: 'Parser[Q]') -> 'Parser[Q]':
+        def function(loc: Location, stream: StringStream) -> ParseResult[Q]:
+            self.parse(stream)
+            return keep.parse(stream)
+
+        return Parser(function)

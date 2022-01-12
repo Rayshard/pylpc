@@ -239,19 +239,10 @@ def Named(name: str, parser: Parser[T]) -> Parser[T]:
     return Parser(function)
 
 def Prefixed(prefix: Parser[T1], parser: Parser[T2]) -> Parser[T2]:
-    def function(loc: Location, stream: StringStream) -> ParseResult[T2]:
-        prefix.parse(stream)
-        return parser.parse(stream)
-
-    return Parser(function)
+    return prefix >> parser
 
 def Suffixed(parser: Parser[T1], suffix: Parser[T2]) -> Parser[T1]:
-    def function(loc: Location, stream: StringStream) -> ParseResult[T1]:
-        result = parser.parse(stream)
-        suffix.parse(stream)
-        return result
-
-    return Parser(function)
+    return parser << suffix
 
 def Between(prefix: Parser[T1], parser: Parser[T], suffix: Parser[T2]) -> Parser[T]:
     return Suffixed(Prefixed(prefix, parser), suffix)

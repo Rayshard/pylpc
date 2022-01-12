@@ -62,9 +62,6 @@ def test_StringStream():
     assert False # set_token
     assert False # clear_tokens
 
-def test_IgnoreOnParse():
-    assert Digits().parse("   123", Whitespaces()).value == "123"
-
 def test_Lexer():
     assert False
 
@@ -200,11 +197,17 @@ def test_FirstSuccess():
 def test_Named():
     assert False
 
-def test_Prefixed():
+def test_ParserLShift():
     assert False
 
-def test_Suffixed():
+def test_ParserRShift():
     assert False
+
+def test_Prefixed():
+    pass # Derivative of ParserRShift
+
+def test_Suffixed():
+    pass # Derivative of ParserLShift
 
 def test_Value():
     assert False
